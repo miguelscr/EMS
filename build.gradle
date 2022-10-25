@@ -2,6 +2,8 @@ plugins {
 	id 'org.springframework.boot' version '2.7.4'
 	id 'io.spring.dependency-management' version '1.0.14.RELEASE'
 	id 'java'
+	id 'groovy'
+	id 'jacoco'
 }
 
 group = 'com.tcs'
@@ -26,8 +28,73 @@ dependencies {
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	runtimeOnly 'com.h2database:h2'
+	testImplementation group: 'org.codehaus.groovy', name: 'groovy-all', version: '3.0.5'
+	testImplementation group: 'org.spockframework', name: 'spock-spring', version: '2.0-groovy-3.0'
+	testImplementation group: 'org.spockframework', name: 'spock-core', version: '2.0-groovy-3.0'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.security:spring-security-test'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+test {
+
+	finalizedBy jacocoTestReport // report is always generated after tests run
+
+}
+private excludedClassFilesForReport(classDirectories) {
+	classDirectories.setFrom(files(classDirectories.files.collect{
+		fileTree(dir:it,
+				exclude:[
+						'*/domain/*',
+						'*/*EmsApplication'
+				]
+		)
+	}))
+}
+jacocoTestReport {
+	dependsOn test //test are required to run before generating a report
+//	reports {xml.required = true
+//	csv.required = true
+//	html.outputLocation =  true}
+
+	afterEvaluate {
+		excludedClassFilesForReport(classDirectories)
+	}
+	finalizedBy jacocoTestCoverageVerification
+}
+
+jacocoTestCoverageVerification {
+
+	afterEvaluate {
+		excludedClassFilesForReport(classDirectories)
+	}
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.10
+			}
+		}
+
+		rule {
+			element = 'CLASS'
+			limit {
+				minimum = 0.20
+			}
+		}
+
+	}
+}
+
+
+sourceSets {
+	integration {
+		groovy.srcDir "$projectDir/src/integration/groovy"
+		resources.srcDir "$projectDir/src/integration/resources"
+		compileClasspath += main.output + test.output
+		runtimeClasspath += main.output + test.output
+	}
 }
